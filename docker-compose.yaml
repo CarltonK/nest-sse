@@ -1,0 +1,56 @@
+version: '3.6'
+
+services:
+  postgres:
+    container_name: laara_db
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - laara:/var/lib/postgresql/data
+    networks:
+      backend_network:
+        ipv4_address: 172.35.0.2
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: "laara_db_user"
+      POSTGRES_PASSWORD: "laara_db_password"
+      POSTGRES_DB: "laara_db"
+      PGDATA: /var/lib/postgresql/data/laara_db/
+  laara:
+    container_name: laara_app
+    build:
+      context: .
+      dockerfile: docker/live.Dockerfile
+    volumes:
+      # Binds volume to enable working through docker locally
+      - type: bind
+        source: ./src/
+        target: /app/src/
+      - type: bind
+        source: ./package.json
+        target: /app/package.json
+      - type: bind
+        source: ./tsconfig.json
+        target: /app/tsconfig.json
+    networks:
+      backend_network:
+        ipv4_address: 172.35.0.3
+    depends_on:
+      - postgres
+    ports:
+      - 3000:3000
+    environment:
+      PORT: 3000
+      NODE_ENV: 'local'
+      GOOGLE_CLOUD_PROJECT: '<PROJECT>'
+      SMART_URL: 'http://172.35.0.4:5000'
+      DATABASE_URL: 'postgresql://laara_db_user:laara_db_password@172.35.0.1:5432/laara_db'
+volumes:
+  laara:
+networks:
+  backend_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.35.0.0/16
